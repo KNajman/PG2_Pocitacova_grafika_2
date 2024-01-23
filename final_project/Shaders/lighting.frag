@@ -1,4 +1,4 @@
-#version 330 core
+#version 430 core
 //In this tutorial it might seem like a lot is going on, but really we just combine the last tutorials, 3 pieces of source code into one
 //and added 3 extra point lights.
 struct Material {

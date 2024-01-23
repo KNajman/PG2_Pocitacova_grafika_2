@@ -12,9 +12,9 @@ namespace PG2
             var nativeWindowSettings = new NativeWindowSettings()
             {
                 ClientSize = new Vector2i(1200, 720),
-                Title = "Creating a Window",
-                // This is needed to run on macos
-                Flags = ContextFlags.ForwardCompatible,
+                Title = "Solar system",
+                // This is needed to run on macos and debug
+                Flags = ContextFlags.ForwardCompatible | ContextFlags.Debug,
             };
 
             using (var window = new Window(GameWindowSettings.Default, nativeWindowSettings))

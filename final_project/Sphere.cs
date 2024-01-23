@@ -4,17 +4,13 @@ namespace Final
 {
     public class Sphere
     {
-        private int VAO, VBO, EBO;
-        private int vertexCount;
+        private readonly int VAO, VBO, EBO;
+        private readonly int vertexCount;
 
         public Sphere(float radius, int sectorCount, int stackCount)
         {
-            List<float> vertices = new List<float>();
-            List<int> indices = new List<int>();
-
-            float x, y, z, xy;  // vertex position
-            float nx, ny, nz, lengthInv = 1.0f / radius;  // vertex normal
-            float s, t;  // vertex texture coordinates
+            List<float> vertices = [];
+            List<int> indices = [];
 
             float sectorStep = 2 * MathF.PI / sectorCount;
             float stackStep = MathF.PI / stackCount;
@@ -23,42 +19,43 @@ namespace Final
             for (int i = 0; i <= stackCount; ++i)
             {
                 stackAngle = MathF.PI / 2 - i * stackStep;  // starting from pi/2 to -pi/2
-                xy = radius * MathF.Cos(stackAngle);  // r * cos(u)
-                z = radius * MathF.Sin(stackAngle);   // r * sin(u)
+                float xy = radius * MathF.Cos(stackAngle);  // r * cos(u)
+                float z = radius * MathF.Sin(stackAngle);   // r * sin(u)
 
                 for (int j = 0; j <= sectorCount; ++j)
                 {
                     sectorAngle = j * sectorStep;  // starting from 0 to 2pi
 
                     // vertex position
-                    x = xy * MathF.Cos(sectorAngle);  // r * cos(u) * cos(v)
-                    y = xy * MathF.Sin(sectorAngle);  // r * cos(u) * sin(v)
-                    z = radius * MathF.Sin(stackAngle); // r * sin(u)
-
-                    vertices.Add(x);
-                    vertices.Add(y);
-                    vertices.Add(z);
+                    float x = xy * MathF.Cos(sectorAngle);  // r * cos(u) * cos(v)
+                    float y = xy * MathF.Sin(sectorAngle);  // r * cos(u) * sin(v)
+                    float vz = radius * MathF.Sin(stackAngle); // r * sin(u)
 
                     // normalized vertex normal
-                    nx = x * lengthInv;
-                    ny = y * lengthInv;
-                    nz = z * lengthInv;
+                    float nx = x / radius;
+                    float ny = y / radius;
+                    float nz = vz / radius;
+
+                    // vertex texture coordinates
+                    float s = (float)j / sectorCount;
+                    float t = (float)i / stackCount;
+
+                    // add vertex data to the lists
+                    vertices.Add(x);
+                    vertices.Add(y);
+                    vertices.Add(vz);
                     vertices.Add(nx);
                     vertices.Add(ny);
                     vertices.Add(nz);
-
-                    // vertex texture coordinates
-                    s = (float)j / sectorCount;
-                    t = (float)i / stackCount;
                     vertices.Add(s);
                     vertices.Add(t);
 
-                    if (i != stackCount)
+                    if (i != stackCount && j != sectorCount)
                     {
                         // indices
                         int currentRow = i;
                         int nextRow = i + 1;
-                        int nextSect = (j + 1) % sectorCount;
+                        int nextSect = j + 1;
 
                         indices.Add(currentRow * (sectorCount + 1) + j);
                         indices.Add(nextRow * (sectorCount + 1) + j);
@@ -66,7 +63,7 @@ namespace Final
 
                         indices.Add(currentRow * (sectorCount + 1) + j);
                         indices.Add(nextRow * (sectorCount + 1) + nextSect);
-                        indices.Add(currentRow * (sectorCount + 1) + (j + 1) % sectorCount);
+                        indices.Add(currentRow * (sectorCount + 1) + nextSect);
                     }
                 }
             }
@@ -107,4 +104,5 @@ namespace Final
             GL.BindVertexArray(0);
         }
     }
-    }
+
+}

@@ -6,7 +6,6 @@ using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using System.Diagnostics;
 
-
 namespace PG2
 {
     public class Window : GameWindow
@@ -66,39 +65,37 @@ namespace PG2
             -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f
         };
 
-        // We need the point lights' positions to draw the lamps and to get light the materials properly
+        // Ppoint lights' positions to draw the lamps and to get light the materials properly 
         private readonly Vector3[] pointLightPositions =
         {
-            new Vector3(0.7f, 0.2f, 2.0f),
-            new Vector3(2.3f, -3.3f, -4.0f),
-            new Vector3(-4.0f, 2.0f, -12.0f),
-            new Vector3(0.0f, 0.0f, -3.0f)
+            // 4 random point lights in row over the planets
+            new( -2.0f, 2.0f, 2.0f),
+            new( 3.0f, 2.0f, 2.0f),
+            new( 8.0f, 2.0f, 2.0f),
+            new( 12.0f, 2.0f, 2.0f),
         };
 
-        private Sphere earth, moon, venus, mars;
+        private Sphere sun, mercury, earth, moon, venus, mars;//, jupiter, saturn, uran, neptun;
 
         private int vaoLamp;
 
-        private Shader lampShader;
+        private Shader lampShader, lightingShader;
 
-        private Shader lightingShader;
-
-        private Texture earthMap, moonMap, earthSpecularMap, venusMap, venusSpecularMap, marsMap;
-
-        private static Stopwatch? timer;
-        bool vsyncEnabled = false;
+        private Texture sunMap, earthMap, moonMap, earthAtmosphere, venusMap, venusSpecularMap, marsMap, mercuryMap;//, jupiterMap, saturnMap, uranMap, neptunMap;
+        private static Stopwatch timer;
         private static int fps;
+        private bool vsyncEnabled = true;
 
-        public Window(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
-            : base(gameWindowSettings, nativeWindowSettings)
-        { }
+        public Window(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings) : base(gameWindowSettings, nativeWindowSettings) { }
 
         protected override void OnLoad()
         {
             base.OnLoad();
-            // blue background
-            GL.ClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            // Enable features we want to use from OpenGL            
+            GL.Enable(EnableCap.Texture2D); // Enable Texture Mapping
             GL.Enable(EnableCap.DepthTest); // Enable depth testing for z-culling
+
+            GL.ClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
             // Vertex Buffer Object
             VBO = GL.GenBuffer();
@@ -112,10 +109,10 @@ namespace PG2
             GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 3 * sizeof(float));
             GL.EnableVertexAttribArray(1);
 
+
             // Shader
             lightingShader = new Shader("Shaders/shader.vert", "Shaders/lighting.frag");
             lampShader = new Shader("Shaders/shader.vert", "Shaders/shader.frag");
-
 
             {
                 var positionLocation = lightingShader.GetAttribLocation("aPos");
@@ -140,25 +137,15 @@ namespace PG2
                 GL.VertexAttribPointer(positionLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 0);
             }
 
-            earthMap = Texture.LoadFromFile("Resources/2k_earth_daymap.jpg");
-            earth = new Sphere(radius: 1.0f, sectorCount: 36, stackCount: 18);
-            earthSpecularMap = Texture.LoadFromFile("Resources/2k_earth_clouds.jpg");
-
-            moonMap = Texture.LoadFromFile("Resources/2k_moon.jpg");
-            moon = new Sphere(radius: 0.3f, sectorCount: 18, stackCount: 9);
-
-            venus = new Sphere(radius: 0.8f, sectorCount: 36, stackCount: 18);
-            venusMap = Texture.LoadFromFile("Resources/8k_venus_surface.jpg");
-            venusSpecularMap = Texture.LoadFromFile("Resources/4k_venus_atmosphere.jpg");
-
-            mars = new Sphere(radius: 0.5f, sectorCount: 36, stackCount: 18);
-            marsMap = Texture.LoadFromFile("Resources/8k_mars.jpg");
+            SetSolarSystem();
 
             // Camera
             {
                 camera = new Camera(Vector3.UnitZ * 3, Size.X / (float)Size.Y);
                 CursorState = CursorState.Grabbed;
             }
+            timer = new Stopwatch();
+            timer.Start();
         }
 
         protected override void OnRenderFrame(FrameEventArgs e)
@@ -169,6 +156,7 @@ namespace PG2
 
             // Set the shader and uniforms for lighting
             GL.BindVertexArray(VAO);
+
             lightingShader.Use();
 
             lightingShader.SetMatrix4("view", camera.GetViewMatrix());
@@ -180,7 +168,7 @@ namespace PG2
             lightingShader.SetVector3("material.specular", new Vector3(0.5f, 0.5f, 0.5f));
             lightingShader.SetFloat("material.shininess", 32.0f);
 
-            // Set the properties of the directional light (representing the sun)
+            // Set the properties of the directional light
             lightingShader.SetVector3("dirLight.direction", new Vector3(-0.2f, -1.0f, -0.3f));
             lightingShader.SetVector3("dirLight.ambient", new Vector3(0.05f, 0.05f, 0.05f));
             lightingShader.SetVector3("dirLight.diffuse", new Vector3(0.4f, 0.4f, 0.4f));
@@ -210,37 +198,8 @@ namespace PG2
             lightingShader.SetFloat("spotLight.cutOff", MathF.Cos(MathHelper.DegreesToRadians(12.5f)));
             lightingShader.SetFloat("spotLight.outerCutOff", MathF.Cos(MathHelper.DegreesToRadians(17.5f)));
 
-            // Draw the Earth
-            GL.ActiveTexture(TextureUnit.Texture0);  // Activate texture unit 0
-            earthMap.Use(TextureUnit.Texture0);
-            GL.ActiveTexture(TextureUnit.Texture1);  // Activate texture unit 1
-            earthSpecularMap.Use(TextureUnit.Texture1);
-            Matrix4 earthModel = Matrix4.CreateScale(1.0f);
-            lightingShader.SetMatrix4("model", earthModel);
-            earth.Render();
-
-            // Draw the Moon
-            GL.ActiveTexture(TextureUnit.Texture0);  // Activate texture unit 1
-            moonMap.Use(TextureUnit.Texture0);
-            Matrix4 moonModel = Matrix4.CreateScale(0.3f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * 1.5f);
-            lightingShader.SetMatrix4("model", moonModel);
-            moon.Render();
-
-            // Draw Venus
-            GL.ActiveTexture(TextureUnit.Texture0);  // Activate texture unit 1
-            venusMap.Use(TextureUnit.Texture0);
-            GL.ActiveTexture(TextureUnit.Texture1);  // Activate texture unit 1
-            venusSpecularMap.Use(TextureUnit.Texture1);
-            Matrix4 venusModel = Matrix4.CreateScale(0.5f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * 2.5f);
-            lightingShader.SetMatrix4("model", venusModel);
-            venus.Render();
-
-            // Draw Mars
-            GL.ActiveTexture(TextureUnit.Texture0);  // Activate texture unit 1
-            marsMap.Use(TextureUnit.Texture0);
-            Matrix4 marsModel = Matrix4.CreateScale(0.5f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * 3.5f);
-            lightingShader.SetMatrix4("model", marsModel);
-            mars.Render();
+            // Draw the planets
+            RenderPlanets();
 
             // Draw lights
             GL.BindVertexArray(vaoLamp);
@@ -257,6 +216,7 @@ namespace PG2
             }
 
             SwapBuffers();
+            PrintFPS();
         }
 
         //Resize
@@ -284,13 +244,12 @@ namespace PG2
                 Close();
             }
 
-            // enable/disable Vsync whe V is pressed
-            if (input.IsKeyDown(Keys.V))
+            // Toggle VSync when 'V' is pressed
+            if (input.IsKeyDown(Keys.V) && timer.ElapsedMilliseconds > 500)
             {
-                // Toggle VSync when 'V' key is pressed
+                timer.Restart();
                 vsyncEnabled = !vsyncEnabled;
-                //
-                Context.SwapInterval = vsyncEnabled ? 1 : 0;
+                VSync = vsyncEnabled ? VSyncMode.On : VSyncMode.Off;
             }
 
             // enable/disable Fullscreen when F is pressed + debounce time of 500ms
@@ -414,6 +373,110 @@ namespace PG2
             }
             fps++;
         }
+
+        //set solar system
+        public void SetSolarSystem()
+        {
+            // sizes of objects sun, mercury, venus, earth, moon, mars, jupiter, saturn, uran, neptun
+            float[] solarRadius = { 5.0f, 0.33f, 0.8f, 1.0f, 0.2f, 0.5f, 11.0f, 9.0f, 4.0f, 3.8f };
+            //sun
+            sun = new Sphere(radius: solarRadius[0], sectorCount: 36, stackCount: 18);
+            sunMap = Texture.LoadFromFile("Resources/2k_sun.jpg");
+
+            //mercury
+            mercury = new Sphere(radius: solarRadius[1], sectorCount: 36, stackCount: 18);
+            mercuryMap = Texture.LoadFromFile("Resources/2k_mercury.jpg");
+
+            // venus
+            venus = new Sphere(radius: solarRadius[2], sectorCount: 36, stackCount: 18);
+            venusMap = Texture.LoadFromFile("Resources/8k_venus_surface.jpg");
+            venusSpecularMap = Texture.LoadFromFile("Resources/4k_venus_atmosphere.jpg");
+
+            // earth
+            earth = new Sphere(radius: solarRadius[3], sectorCount: 36, stackCount: 18);
+            earthMap = Texture.LoadFromFile("Resources/2k_earth_daymap.jpg");
+            earthAtmosphere = Texture.LoadFromFile("Resources/2k_earth_clouds.jpg");
+
+            // moon
+            moon = new Sphere(radius: solarRadius[4], sectorCount: 36, stackCount: 18);
+            moonMap = Texture.LoadFromFile("Resources/2k_moon.jpg");
+
+            // mars
+            mars = new Sphere(radius: solarRadius[5], sectorCount: 36, stackCount: 18);
+            marsMap = Texture.LoadFromFile("Resources/8k_mars.jpg");
+
+            //// jupiter
+            //jupiter = new Sphere(radius: solarRadius[6], sectorCount: 36, stackCount: 18);
+            //jupiterMap = Texture.LoadFromFile("Resources/2k_jupiter.jpg");
+
+            //// saturn
+            //saturn = new Sphere(radius: solarRadius[7], sectorCount: 36, stackCount: 18);
+            //saturnMap = Texture.LoadFromFile("Resources/2k_saturn.jpg");
+
+            //// uranus
+            //uran = new Sphere(radius: solarRadius[8], sectorCount: 36, stackCount: 18);
+            //uranMap = Texture.LoadFromFile("Resources/2k_uranus.jpg");
+
+            //// neptune
+            //neptun = new Sphere(radius: solarRadius[9], sectorCount: 36, stackCount: 18);
+            //neptunMap = Texture.LoadFromFile("Resources/2k_neptune.jpg")
+        }
+
+        //render planets
+        public void RenderPlanets()
+        {
+            // distance from the sun
+            //                  sun, mercury, venus, earth, moon, mars, jupiter, saturn, uran, neptun
+            float[] distance = [-10.0f, -5.0f, -2.0f, 0.0f, 1.0f, 3.0f, 8.0f, 12.0f, 17.0f, 23.0f];
+
+
+            //Draw Sun
+            GL.ActiveTexture(TextureUnit.Texture0);
+            sunMap.Use(TextureUnit.Texture0);
+            Matrix4 sunModel = Matrix4.CreateScale(1.0f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[0]);
+            lightingShader.SetMatrix4("model", sunModel);
+            sun.Render();
+
+            //Draw Mercury
+            GL.ActiveTexture(TextureUnit.Texture0);
+            mercuryMap.Use(TextureUnit.Texture0);
+            Matrix4 mercuryModel = Matrix4.CreateScale(1.0f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[1]);
+            lightingShader.SetMatrix4("model", mercuryModel);
+            mercury.Render();
+
+            // Draw Venus
+            GL.ActiveTexture(TextureUnit.Texture0);
+            venusMap.Use(TextureUnit.Texture0);
+            GL.ActiveTexture(TextureUnit.Texture1);
+            venusSpecularMap.Use(TextureUnit.Texture1);
+            Matrix4 venusModel = Matrix4.CreateScale(1.0f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[2]);
+            lightingShader.SetMatrix4("model", venusModel);
+            venus.Render();
+
+            // Draw the Earth
+            GL.ActiveTexture(TextureUnit.Texture0);
+            earthMap.Use(TextureUnit.Texture0);
+            // earth atmosphere
+            GL.ActiveTexture(TextureUnit.Texture1);
+            earthAtmosphere.Use(TextureUnit.Texture1);
+            Matrix4 earthModel = Matrix4.CreateScale(1.0f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[3]);
+            lightingShader.SetMatrix4("model", earthModel);
+            earth.Render();
+
+            // Draw the Moon
+            GL.ActiveTexture(TextureUnit.Texture0);
+            moonMap.Use(TextureUnit.Texture0);
+            Matrix4 moonModel = Matrix4.CreateScale(1.0f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[4]);
+            lightingShader.SetMatrix4("model", moonModel);
+            moon.Render();
+
+
+            // Draw Mars
+            GL.ActiveTexture(TextureUnit.Texture0);  // Activate texture unit 1
+            marsMap.Use(TextureUnit.Texture0);
+            Matrix4 marsModel = Matrix4.CreateScale(1.0f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[5]);
+            lightingShader.SetMatrix4("model", marsModel);
+            mars.Render();
+        }
     }
 }
-
