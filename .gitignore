@@ -1,5 +1,5 @@
-# Created by https://www.toptal.com/developers/gitignore/api/c++,csharp,visualstudio,visualstudiocode,windows
-# Edit at https://www.toptal.com/developers/gitignore?templates=c++,csharp,visualstudio,visualstudiocode,windows
+# Created by https://www.toptal.com/developers/gitignore/api/csharp,visualstudio,c++,visualstudiocode
+# Edit at https://www.toptal.com/developers/gitignore?templates=csharp,visualstudio,c++,visualstudiocode
 
 ### C++ ###
 # Prerequisites
@@ -444,27 +444,6 @@ FodyWeavers.xsd
 .history
 .ionide
 
-### Windows ###
-# Windows thumbnail cache files
-Thumbs.db
-Thumbs.db:encryptable
-ehthumbs.db
-ehthumbs_vista.db
-
-# Dump file
-*.stackdump
-
-# Folder config file
-[Dd]esktop.ini
-
-# Recycle Bin used on file shares
-$RECYCLE.BIN/
-
-# Windows Installer files
-
-# Windows shortcuts
-*.lnk
-
 ### VisualStudio ###
 
 # User-specific files
@@ -646,4 +625,4 @@ $RECYCLE.BIN/
 ### VisualStudio Patch ###
 # Additional files built by Visual Studio
 
-# End of https://www.toptal.com/developers/gitignore/api/c++,csharp,visualstudio,visualstudiocode,windows
+# End of https://www.toptal.com/developers/gitignore/api/csharp,visualstudio,c++,visualstudiocode
