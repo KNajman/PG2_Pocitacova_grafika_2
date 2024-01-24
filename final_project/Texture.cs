@@ -4,7 +4,7 @@ using PixelFormat = OpenTK.Graphics.OpenGL4.PixelFormat;
 
 namespace PG2
 {
-    public class Texture
+    public class Texture : System.IDisposable
     {
         public readonly int Handle;
 
@@ -47,6 +47,11 @@ namespace PG2
         {
             GL.ActiveTexture(unit);
             GL.BindTexture(TextureTarget.Texture2D, Handle);
+        }
+
+        public void Dispose()
+        {
+            GL.DeleteTexture(Handle);
         }
     }
 }

@@ -8,14 +8,15 @@ using System.Diagnostics;
 
 namespace PG2
 {
-    public class Window : GameWindow
+    public class Window(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings) : GameWindow(gameWindowSettings, nativeWindowSettings)
     {
         // VAO, VBO, EBO
+
         private int VBO; // Vertex Buffer Object
-        private int VAO; // Vertex Array Object
+        private int vaoModel, vaoSun, vaoLamp;
 
         //Camera
-        private Camera camera;// Camera
+        private Camera camera;
         private bool firstMove = true;
         private Vector2 lastPos;
 
@@ -75,25 +76,21 @@ namespace PG2
             new( 12.0f, 2.0f, 2.0f),
         };
 
-        private Sphere sun, mercury, earth, moon, venus, mars;//, jupiter, saturn, uran, neptun;
+        private Sphere sun, mercury, earth, moon, venus, mars, jupiter, saturn, uran, neptun;
 
-        private int vaoLamp;
-
-        private Shader lampShader, lightingShader;
-
-        private Texture sunMap, earthMap, moonMap, earthAtmosphere, venusMap, venusSpecularMap, marsMap, mercuryMap;//, jupiterMap, saturnMap, uranMap, neptunMap;
-        private static Stopwatch timer;
+        private Shader lampShader, lightingShader, sunShader;
+        private Texture sunMap, earthMap, moonMap, earthAtmosphere, venusMap, venusAtmosphere, marsMap, mercuryMap, jupiterMap, saturnMap, uranMap, neptunMap;
+        private static Stopwatch timer = new();
         private static int fps;
         private bool vsyncEnabled = true;
-
-        public Window(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings) : base(gameWindowSettings, nativeWindowSettings) { }
 
         protected override void OnLoad()
         {
             base.OnLoad();
+
             // Enable features we want to use from OpenGL            
             GL.Enable(EnableCap.Texture2D); // Enable Texture Mapping
-            GL.Enable(EnableCap.DepthTest); // Enable depth testing for z-culling
+            GL.Enable(EnableCap.DepthTest);  // Enable depth testing for z-culling
 
             GL.ClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
@@ -102,50 +99,45 @@ namespace PG2
             GL.BindBuffer(BufferTarget.ArrayBuffer, VBO);
             GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
 
-            // Vertex Array Object
-            VAO = GL.GenVertexArray();
-            GL.BindVertexArray(VAO);
+            // GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 3 * sizeof(float));
+            // GL.EnableVertexAttribArray(1);
 
-            GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 3 * sizeof(float));
-            GL.EnableVertexAttribArray(1);
-
-
-            // Shader
+            //shaders
             lightingShader = new Shader("Shaders/shader.vert", "Shaders/lighting.frag");
             lampShader = new Shader("Shaders/shader.vert", "Shaders/shader.frag");
+            //sunShader = new Shader("Shaders/shader.vert", "Shaders/sun.frag");
 
-            {
-                var positionLocation = lightingShader.GetAttribLocation("aPos");
-                GL.EnableVertexAttribArray(positionLocation);
-                GL.VertexAttribPointer(positionLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 0);
+            vaoModel = GL.GenVertexArray();
+            GL.BindVertexArray(vaoModel);
+            SetupShaderAttributes(lightingShader, "aPos", "aNormal", "aTexCoords");
 
-                var normalLocation = lightingShader.GetAttribLocation("aNormal");
-                GL.EnableVertexAttribArray(normalLocation);
-                GL.VertexAttribPointer(normalLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 3 * sizeof(float));
+            vaoLamp = GL.GenVertexArray();
+            GL.BindVertexArray(vaoLamp);
+            SetupShaderAttributes(lampShader, "aPos");
 
-                var texCoordLocation = lightingShader.GetAttribLocation("aTexCoords");
-                GL.EnableVertexAttribArray(texCoordLocation);
-                GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 8 * sizeof(float), 6 * sizeof(float));
-            }
-
-            {
-                vaoLamp = GL.GenVertexArray();
-                GL.BindVertexArray(vaoLamp);
-
-                var positionLocation = lampShader.GetAttribLocation("aPos");
-                GL.EnableVertexAttribArray(positionLocation);
-                GL.VertexAttribPointer(positionLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 0);
-            }
+            // vaoSun = GL.GenVertexArray();
+            // GL.BindVertexArray(vaoSun);
+            // SetupShaderAttributes(sunShader, "aPos", "aNormal", "aTexCoords");
 
             SetSolarSystem();
 
-            // Camera
-            {
-                camera = new Camera(Vector3.UnitZ * 3, Size.X / (float)Size.Y);
-                CursorState = CursorState.Grabbed;
-            }
+            // Initialize the camera
+            camera = new Camera(Vector3.UnitZ * 3, Size.X / (float)Size.Y);
+            CursorState = CursorState.Grabbed;
+
+            // Start the timer
             timer = new Stopwatch();
             timer.Start();
+        }
+
+        private static void SetupShaderAttributes(Shader shader, params string[] attributeNames)
+        {
+            for (int i = 0; i < attributeNames.Length; i++)
+            {
+                var attributeLocation = shader.GetAttribLocation(attributeNames[i]);
+                GL.EnableVertexAttribArray(attributeLocation);
+                GL.VertexAttribPointer(attributeLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), i * 3 * sizeof(float));
+            }
         }
 
         protected override void OnRenderFrame(FrameEventArgs e)
@@ -155,7 +147,7 @@ namespace PG2
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
             // Set the shader and uniforms for lighting
-            GL.BindVertexArray(VAO);
+            GL.BindVertexArray(vaoModel);
 
             lightingShader.Use();
 
@@ -174,7 +166,7 @@ namespace PG2
             lightingShader.SetVector3("dirLight.diffuse", new Vector3(0.4f, 0.4f, 0.4f));
             lightingShader.SetVector3("dirLight.specular", new Vector3(0.5f, 0.5f, 0.5f));
 
-            // Point lights
+            //Point lights
             for (int i = 0; i < pointLightPositions.Length; i++)
             {
                 lightingShader.SetVector3($"pointLights[{i}].position", pointLightPositions[i]);
@@ -207,13 +199,25 @@ namespace PG2
             lampShader.SetMatrix4("view", camera.GetViewMatrix());
             lampShader.SetMatrix4("projection", camera.GetProjectionMatrix());
 
+            // Draw sun
+            // GL.BindVertexArray(vaoSun);
+            // sunShader.Use();
+            // sunShader.SetMatrix4("view", camera.GetViewMatrix());
+            // sunShader.SetMatrix4("projection", camera.GetProjectionMatrix());
+
+            // GL.ActiveTexture(TextureUnit.Texture0);
+            // sunMap.Use(TextureUnit.Texture0);
+            // Matrix4 sunModel = Matrix4.CreateScale(0.1f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * -10.0f);
+            // sunShader.SetMatrix4("model", sunModel);
+            // sun.Render();
+
             // Draw all the lights at their positions
-            for (int i = 0; i < pointLightPositions.Length; i++)
-            {
-                Matrix4 lampMatrix = Matrix4.CreateScale(0.2f) * Matrix4.CreateTranslation(pointLightPositions[i]);
-                lampShader.SetMatrix4("model", lampMatrix);
-                GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
-            }
+            // for (int i = 0; i < pointLightPositions.Length; i++)
+            // {
+            //     Matrix4 lampMatrix = Matrix4.CreateScale(0.2f) * Matrix4.CreateTranslation(pointLightPositions[i]);
+            //     lampShader.SetMatrix4("model", lampMatrix);
+            //     GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
+            // }
 
             SwapBuffers();
             PrintFPS();
@@ -258,7 +262,7 @@ namespace PG2
                 timer.Restart();
                 WindowState = WindowState == WindowState.Fullscreen ? WindowState.Normal : WindowState.Fullscreen;
             }
-            const float cameraSpeed = 1.5f;
+            const float cameraSpeed = 3.5f;
             const float sensitivity = 0.2f;
 
             if (input.IsKeyDown(Keys.W))
@@ -317,7 +321,7 @@ namespace PG2
 
             // Delete all the resources.
             GL.DeleteBuffer(VBO);
-            GL.DeleteVertexArray(VAO);
+            GL.DeleteVertexArray(vaoModel);
 
             //GL.DeleteProgram(shader.Handle);
 
@@ -339,7 +343,6 @@ namespace PG2
             camera.Fov -= e.OffsetY;
         }
 
-
         //show all HW info in  console
         public static void ShowHWinfo()
         {
@@ -360,7 +363,6 @@ namespace PG2
             Console.WriteLine($"OpenGL extensions {extensions}");
         }
 
-
         //print FPS in console
         public static void PrintFPS()
         {
@@ -378,7 +380,7 @@ namespace PG2
         public void SetSolarSystem()
         {
             // sizes of objects sun, mercury, venus, earth, moon, mars, jupiter, saturn, uran, neptun
-            float[] solarRadius = { 5.0f, 0.33f, 0.8f, 1.0f, 0.2f, 0.5f, 11.0f, 9.0f, 4.0f, 3.8f };
+            float[] solarRadius = [109.0f, 0.33f, 0.8f, 1.0f, 0.2f, 0.5f, 11.0f, 9.0f, 4.0f, 3.8f];
             //sun
             sun = new Sphere(radius: solarRadius[0], sectorCount: 36, stackCount: 18);
             sunMap = Texture.LoadFromFile("Resources/2k_sun.jpg");
@@ -389,8 +391,8 @@ namespace PG2
 
             // venus
             venus = new Sphere(radius: solarRadius[2], sectorCount: 36, stackCount: 18);
-            venusMap = Texture.LoadFromFile("Resources/8k_venus_surface.jpg");
-            venusSpecularMap = Texture.LoadFromFile("Resources/4k_venus_atmosphere.jpg");
+            venusMap = Texture.LoadFromFile("Resources/2k_venus_surface.jpg");
+            venusAtmosphere = Texture.LoadFromFile("Resources/2k_venus_atmosphere.jpg");
 
             // earth
             earth = new Sphere(radius: solarRadius[3], sectorCount: 36, stackCount: 18);
@@ -403,23 +405,24 @@ namespace PG2
 
             // mars
             mars = new Sphere(radius: solarRadius[5], sectorCount: 36, stackCount: 18);
-            marsMap = Texture.LoadFromFile("Resources/8k_mars.jpg");
+            marsMap = Texture.LoadFromFile("Resources/2k_mars.jpg");
 
-            //// jupiter
-            //jupiter = new Sphere(radius: solarRadius[6], sectorCount: 36, stackCount: 18);
-            //jupiterMap = Texture.LoadFromFile("Resources/2k_jupiter.jpg");
+            // jupiter
+            jupiter = new Sphere(radius: solarRadius[6], sectorCount: 36, stackCount: 18);
+            jupiterMap = Texture.LoadFromFile("Resources/2k_jupiter.jpg");
 
-            //// saturn
-            //saturn = new Sphere(radius: solarRadius[7], sectorCount: 36, stackCount: 18);
-            //saturnMap = Texture.LoadFromFile("Resources/2k_saturn.jpg");
+            // saturn
+            saturn = new Sphere(radius: solarRadius[7], sectorCount: 36, stackCount: 18);
+            saturnMap = Texture.LoadFromFile("Resources/2k_saturn.jpg");
 
-            //// uranus
-            //uran = new Sphere(radius: solarRadius[8], sectorCount: 36, stackCount: 18);
-            //uranMap = Texture.LoadFromFile("Resources/2k_uranus.jpg");
+            // uranus
+            uran = new Sphere(radius: solarRadius[8], sectorCount: 36, stackCount: 18);
+            uranMap = Texture.LoadFromFile("Resources/2k_uranus.jpg");
 
-            //// neptune
-            //neptun = new Sphere(radius: solarRadius[9], sectorCount: 36, stackCount: 18);
-            //neptunMap = Texture.LoadFromFile("Resources/2k_neptune.jpg")
+            // neptune
+            neptun = new Sphere(radius: solarRadius[9], sectorCount: 36, stackCount: 18);
+            neptunMap = Texture.LoadFromFile("Resources/2k_neptune.jpg");
+
         }
 
         //render planets
@@ -427,20 +430,20 @@ namespace PG2
         {
             // distance from the sun
             //                  sun, mercury, venus, earth, moon, mars, jupiter, saturn, uran, neptun
-            float[] distance = [-10.0f, -5.0f, -2.0f, 0.0f, 1.0f, 3.0f, 8.0f, 12.0f, 17.0f, 23.0f];
+            float[] distance = [-10.0f, 0.39f, 0.72f, 1.0f, 1.1f, 1.52f, 5.20f, 9.54f, 19.22f, 30.06f];
 
 
             //Draw Sun
             GL.ActiveTexture(TextureUnit.Texture0);
             sunMap.Use(TextureUnit.Texture0);
-            Matrix4 sunModel = Matrix4.CreateScale(1.0f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[0]);
+            Matrix4 sunModel = Matrix4.CreateScale(0.1f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[0]);
             lightingShader.SetMatrix4("model", sunModel);
             sun.Render();
 
             //Draw Mercury
             GL.ActiveTexture(TextureUnit.Texture0);
             mercuryMap.Use(TextureUnit.Texture0);
-            Matrix4 mercuryModel = Matrix4.CreateScale(1.0f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[1]);
+            Matrix4 mercuryModel = Matrix4.CreateScale(0.1f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[1]);
             lightingShader.SetMatrix4("model", mercuryModel);
             mercury.Render();
 
@@ -448,8 +451,8 @@ namespace PG2
             GL.ActiveTexture(TextureUnit.Texture0);
             venusMap.Use(TextureUnit.Texture0);
             GL.ActiveTexture(TextureUnit.Texture1);
-            venusSpecularMap.Use(TextureUnit.Texture1);
-            Matrix4 venusModel = Matrix4.CreateScale(1.0f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[2]);
+            venusAtmosphere.Use(TextureUnit.Texture1);
+            Matrix4 venusModel = Matrix4.CreateScale(0.1f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[2]);
             lightingShader.SetMatrix4("model", venusModel);
             venus.Render();
 
@@ -459,14 +462,14 @@ namespace PG2
             // earth atmosphere
             GL.ActiveTexture(TextureUnit.Texture1);
             earthAtmosphere.Use(TextureUnit.Texture1);
-            Matrix4 earthModel = Matrix4.CreateScale(1.0f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[3]);
+            Matrix4 earthModel = Matrix4.CreateScale(0.1f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[3]);
             lightingShader.SetMatrix4("model", earthModel);
             earth.Render();
 
             // Draw the Moon
             GL.ActiveTexture(TextureUnit.Texture0);
             moonMap.Use(TextureUnit.Texture0);
-            Matrix4 moonModel = Matrix4.CreateScale(1.0f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[4]);
+            Matrix4 moonModel = Matrix4.CreateScale(0.1f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[4]);
             lightingShader.SetMatrix4("model", moonModel);
             moon.Render();
 
@@ -474,9 +477,37 @@ namespace PG2
             // Draw Mars
             GL.ActiveTexture(TextureUnit.Texture0);  // Activate texture unit 1
             marsMap.Use(TextureUnit.Texture0);
-            Matrix4 marsModel = Matrix4.CreateScale(1.0f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[5]);
+            Matrix4 marsModel = Matrix4.CreateScale(0.1f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[5]);
             lightingShader.SetMatrix4("model", marsModel);
             mars.Render();
+
+            // Draw Jupiter
+            GL.ActiveTexture(TextureUnit.Texture0);  // Activate texture unit 1
+            jupiterMap.Use(TextureUnit.Texture0);
+            Matrix4 jupiterModel = Matrix4.CreateScale(0.1f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[6]);
+            lightingShader.SetMatrix4("model", jupiterModel);
+            jupiter.Render();
+
+            // Draw Saturn
+            GL.ActiveTexture(TextureUnit.Texture0);  // Activate texture unit 1
+            saturnMap.Use(TextureUnit.Texture0);
+            Matrix4 saturnModel = Matrix4.CreateScale(0.1f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[7]);
+            lightingShader.SetMatrix4("model", saturnModel);
+            saturn.Render();
+
+            // Draw Uranus
+            GL.ActiveTexture(TextureUnit.Texture0);  // Activate texture unit 1
+            uranMap.Use(TextureUnit.Texture0);
+            Matrix4 uranModel = Matrix4.CreateScale(0.1f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[8]);
+            lightingShader.SetMatrix4("model", uranModel);
+            uran.Render();
+
+            // Draw Neptune
+            GL.ActiveTexture(TextureUnit.Texture0);  // Activate texture unit 1
+            neptunMap.Use(TextureUnit.Texture0);
+            Matrix4 neptunModel = Matrix4.CreateScale(0.1f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[9]);
+            lightingShader.SetMatrix4("model", neptunModel);
+            neptun.Render();
         }
     }
 }
