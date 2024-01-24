@@ -262,7 +262,7 @@ namespace PG2
                 timer.Restart();
                 WindowState = WindowState == WindowState.Fullscreen ? WindowState.Normal : WindowState.Fullscreen;
             }
-            const float cameraSpeed = 3.5f;
+            const float cameraSpeed = 2.5f;
             const float sensitivity = 0.2f;
 
             if (input.IsKeyDown(Keys.W))
