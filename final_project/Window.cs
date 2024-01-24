@@ -450,8 +450,10 @@ namespace PG2
             // Draw Venus
             GL.ActiveTexture(TextureUnit.Texture0);
             venusMap.Use(TextureUnit.Texture0);
+            lightingShader.SetInt("material.diffuse", 0); // Assign texture unit 0 to diffuse
             GL.ActiveTexture(TextureUnit.Texture1);
             venusAtmosphere.Use(TextureUnit.Texture1);
+            lightingShader.SetInt("material.specular", 1); // Assign texture unit 1 to specular
             Matrix4 venusModel = Matrix4.CreateScale(0.1f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[2]);
             lightingShader.SetMatrix4("model", venusModel);
             venus.Render();
@@ -459,9 +461,11 @@ namespace PG2
             // Draw the Earth
             GL.ActiveTexture(TextureUnit.Texture0);
             earthMap.Use(TextureUnit.Texture0);
+            lightingShader.SetInt("material.diffuse", 0); // Assign texture unit 0 to diffuse
             // earth atmosphere
             GL.ActiveTexture(TextureUnit.Texture1);
             earthAtmosphere.Use(TextureUnit.Texture1);
+            lightingShader.SetInt("material.specular", 1); // Assign texture unit 1 to specular
             Matrix4 earthModel = Matrix4.CreateScale(0.1f) * Matrix4.CreateTranslation(new Vector3(2.0f, 0.0f, 0.0f) * distance[3]);
             lightingShader.SetMatrix4("model", earthModel);
             earth.Render();
